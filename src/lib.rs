@@ -63,6 +63,7 @@ pub struct TriadicCensus {
 }
 
 impl TriadicCensus {
+    #[inline(always)]
     fn new() -> TriadicCensus {
         TriadicCensus{census: [0;16]}
     }
@@ -72,14 +73,17 @@ impl TriadicCensus {
         self.census[triad_type as usize] += cnt;
     }
 
+    #[inline(always)]
     fn set(&mut self, triad_type: TriadType, cnt: u64) {
         self.census[triad_type as usize] = cnt;
     }
 
+    #[inline(always)]
     pub fn get(&self, triad_type: TriadType) -> u64 {
         self.census[triad_type as usize]
     }
 
+    #[inline(always)]
     pub fn as_slice<'a>(&'a self) -> &'a[u64] {
         &self.census[..]
     }
