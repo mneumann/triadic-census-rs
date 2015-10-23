@@ -63,6 +63,19 @@ pub struct TriadicCensus {
 }
 
 impl TriadicCensus {
+    /// Calculates the `distance` between two TriadicCensus structs, treated as
+    /// points in a 16-dimensional space.
+    pub fn distance(a: &TriadicCensus, b: &TriadicCensus) -> f64 {
+        let mut sum = 0.0f64;
+        for i in 0..16 {
+            let va = a.census[i];
+            let vb = b.census[i];
+            let diff = (if va > vb { va - vb } else { vb - va }) as f64;
+            sum += diff * diff;
+        }
+        sum.sqrt()
+    }
+
     #[inline(always)]
     fn new() -> TriadicCensus {
         TriadicCensus{census: [0;16]}
@@ -148,18 +161,21 @@ fn test_simple() {
     let n2 = g.add_node(());
     let n3 = g.add_node(());
 
-    let c = TriadicCensus::from_graph(&g);
-    assert_eq!(&[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], c.as_slice());
+    let c1 = TriadicCensus::from_graph(&g);
+    assert_eq!(&[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], c1.as_slice());
 
     g.add_edge(n1, n3, ());
-    let c = TriadicCensus::from_graph(&g);
-    assert_eq!(&[0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0], c.as_slice());
+    let c2 = TriadicCensus::from_graph(&g);
+    assert_eq!(&[0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0], c2.as_slice());
+
+    let d = TriadicCensus::distance(&c1, &c2); // should be sqrt(2)
+    assert!(d > 1.414 && d < 1.415);
 
     g.add_edge(n3, n1, ());
-    let c = TriadicCensus::from_graph(&g);
-    assert_eq!(&[0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0], c.as_slice());
+    let c3 = TriadicCensus::from_graph(&g);
+    assert_eq!(&[0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0], c3.as_slice());
 
     g.add_edge(n2, n3, ());
-    let c = TriadicCensus::from_graph(&g);
-    assert_eq!(&[0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0], c.as_slice());
+    let c4 = TriadicCensus::from_graph(&g);
+    assert_eq!(&[0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0], c4.as_slice());
 }
