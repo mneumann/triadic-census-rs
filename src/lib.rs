@@ -101,6 +101,7 @@ impl TriadicCensus {
         &self.census[..]
     }
 
+    /// XXX: Optimize: find_edge() is O(k) with k the number of edges.
     pub fn from_graph<N, E, I: IndexType+Hash>(graph: &Graph<N, E, Directed, I>) -> TriadicCensus {
         let n = graph.node_count();
 
@@ -178,4 +179,53 @@ fn test_simple() {
     g.add_edge(n2, n3, ());
     let c4 = TriadicCensus::from_graph(&g);
     assert_eq!(&[0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0], c4.as_slice());
+}
+
+#[cfg(test)]
+fn line_graph(n: u32) -> Graph<(),(), Directed> {
+    let mut g: Graph<(),(), Directed> = Graph::new();
+
+    let mut prev = g.add_node(());
+    for _ in 0..n-1 {
+        let cur = g.add_node(());
+        g.add_edge(prev, cur, ());
+        prev = cur;
+    }
+    return g;
+}
+
+#[cfg(test)]
+fn circular_graph(n: u32) -> Graph<(),(), Directed> {
+    let mut g: Graph<(),(), Directed> = Graph::new();
+
+    let first = g.add_node(());
+    let mut prev = first;
+    for _ in 0..n-1 {
+        let cur = g.add_node(());
+        g.add_edge(prev, cur, ());
+        prev = cur;
+    }
+    g.add_edge(prev, first, ());
+    return g;
+}
+
+#[test]
+fn test_line_graph() {
+    // Result compared with igraph.triad_census().
+    let c = TriadicCensus::from_graph(&line_graph(20));
+    assert_eq!(&[816,306,0,0,0,18,0,0,0,0,0,0,0,0,0,0], c.as_slice());
+
+    let c = TriadicCensus::from_graph(&line_graph(40));
+    assert_eq!(&[8436,1406,0,0,0,38,0,0,0,0,0,0,0,0,0,0], c.as_slice());
+}
+
+#[test]
+fn test_circular_graph() {
+    // Result compared with igraph.triad_census().
+    let c = TriadicCensus::from_graph(&circular_graph(20));
+    assert_eq!(&[800,320,0,0,0,20,0,0,0,0,0,0,0,0,0,0], c.as_slice());
+
+    let c = TriadicCensus::from_graph(&circular_graph(40));
+    assert_eq!(&[8400,1440,0,0,0,40,0,0,0,0,0,0,0,0,0,0], c.as_slice());
+
 }
