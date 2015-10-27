@@ -135,17 +135,19 @@ impl TriadicCensus {
         let n = graph.node_count();
 
         let mut census = TriadicCensus::new();
+        let mut neighbors_v = HashSet::new();
+        let mut s = HashSet::new(); // XXX: Use bitset? // reuse
 
         for v in 0..n {
-            let mut neighbors_v = HashSet::new();
+            neighbors_v.clear();
             graph.each_undirected_neighbor(v, |u| {
                 if u > v {
                     neighbors_v.insert(u);
                 }
             });
 
-            for u in neighbors_v {
-                let mut s = HashSet::new(); // XXX: Use bitset? // reuse
+            for &u in neighbors_v.iter() {
+                s.clear();
                 graph.each_undirected_neighbor(u, |nu| {
                     s.insert(nu);
                 });
@@ -164,7 +166,7 @@ impl TriadicCensus {
                 let cnt = n as i64 - s.len() as i64 - 2;
                 assert!(cnt >= 0);
                 census.add(tri_type, cnt as u64);
-                for w in s {
+                for &w in s.iter() {
                     if u < w ||
                        (v < w && w < u && !(graph.has_edge(v, w) || graph.has_edge(w, v))) {
                         let tri_type = TriadType::from_u8(TRITYPES[tricode(graph, v, u, w)]);
