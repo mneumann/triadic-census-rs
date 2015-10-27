@@ -5,6 +5,7 @@ extern crate petgraph;
 use petgraph::{Graph, Directed};
 use petgraph::graph::{NodeIndex, IndexType};
 use std::collections::HashSet;
+use std::mem;
 
 #[repr(u8)]
 #[derive(Debug)]
@@ -33,7 +34,6 @@ pub enum TriadType {
 impl TriadType {
     #[inline(always)]
     fn from_u8(i: u8) -> TriadType {
-        use std::mem;
         assert!(i < 16);
         unsafe { mem::transmute(i) }
     }
