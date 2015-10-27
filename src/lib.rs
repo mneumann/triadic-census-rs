@@ -188,13 +188,13 @@ impl TriadicCensus {
     }
 }
 
-pub struct SimpleDiGraph {
+pub struct SimpleDigraph {
     g: Graph<(), (), Directed>,
 }
 
-impl SimpleDiGraph {
-    pub fn new() -> SimpleDiGraph {
-        SimpleDiGraph { g: Graph::new() }
+impl SimpleDigraph {
+    pub fn new() -> SimpleDigraph {
+        SimpleDigraph { g: Graph::new() }
     }
 
     pub fn add_node(&mut self) -> NodeIdx {
@@ -205,8 +205,8 @@ impl SimpleDiGraph {
         self.g.add_edge(NodeIndex::new(src), NodeIndex::new(dst), ());
     }
 
-    pub fn from(num_nodes: usize, edge_list: &[(NodeIdx, NodeIdx)]) -> SimpleDiGraph {
-        let mut g = SimpleDiGraph::new();
+    pub fn from(num_nodes: usize, edge_list: &[(NodeIdx, NodeIdx)]) -> SimpleDigraph {
+        let mut g = SimpleDigraph::new();
         for _ in 0..num_nodes {
             let _ = g.add_node();
         }
@@ -217,7 +217,7 @@ impl SimpleDiGraph {
     }
 }
 
-impl DirectedGraph for SimpleDiGraph {
+impl DirectedGraph for SimpleDigraph {
     fn node_count(&self) -> NodeIdx {
         self.g.node_count()
     }
@@ -235,11 +235,6 @@ impl DirectedGraph for SimpleDiGraph {
     }
 }
 
-pub struct OptimizedDiGraph {
-    g: SimpleDiGraph,
-    edges: BTreeMap<usize, u64>,
-}
-
 #[inline]
 fn calc_index(n: usize, src: NodeIdx, dst: NodeIdx) -> (usize, u64) {
     assert!(src < n && dst < n);
@@ -249,8 +244,13 @@ fn calc_index(n: usize, src: NodeIdx, dst: NodeIdx) -> (usize, u64) {
     (idx_64, 1u64 << bit_idx as u64)
 }
 
-impl OptimizedDiGraph {
-    pub fn from(graph: SimpleDiGraph) -> OptimizedDiGraph {
+pub struct OptSparseDigraph {
+    g: SimpleDigraph,
+    edges: BTreeMap<usize, u64>,
+}
+
+impl OptSparseDigraph {
+    pub fn from(graph: SimpleDigraph) -> OptSparseDigraph {
         let n = graph.node_count();
 
         let mut edges: BTreeMap<usize, u64> = BTreeMap::new();
@@ -266,11 +266,11 @@ impl OptimizedDiGraph {
             *entry.or_insert(0) |= bit_pattern;
         }
 
-        OptimizedDiGraph {g: graph, edges: edges}
+        OptSparseDigraph {g: graph, edges: edges}
     }
 }
 
-impl DirectedGraph for OptimizedDiGraph {
+impl DirectedGraph for OptSparseDigraph {
     fn node_count(&self) -> NodeIdx {
         self.g.node_count()
     }
@@ -296,7 +296,7 @@ impl DirectedGraph for OptimizedDiGraph {
 
 #[test]
 fn test_simple() {
-    let mut g = SimpleDiGraph::new();
+    let mut g = SimpleDigraph::new();
 
     let n1 = g.add_node();
     let n2 = g.add_node();
@@ -326,8 +326,8 @@ fn test_simple() {
 }
 
 #[cfg(test)]
-fn line_graph(n: u32) -> SimpleDiGraph {
-    let mut g = SimpleDiGraph::new();
+fn line_graph(n: u32) -> SimpleDigraph {
+    let mut g = SimpleDigraph::new();
 
     let mut prev = g.add_node();
     for _ in 0..n - 1 {
@@ -339,8 +339,8 @@ fn line_graph(n: u32) -> SimpleDiGraph {
 }
 
 #[cfg(test)]
-fn circular_graph(n: u32) -> SimpleDiGraph {
-    let mut g = SimpleDiGraph::new();
+fn circular_graph(n: u32) -> SimpleDigraph {
+    let mut g = SimpleDigraph::new();
 
     let first = g.add_node();
     let mut prev = first;
@@ -356,11 +356,11 @@ fn circular_graph(n: u32) -> SimpleDiGraph {
 #[test]
 fn test_line_graph() {
     // Result compared with igraph.triad_census().
-    let c = TriadicCensus::from_graph(&OptimizedDiGraph::from(line_graph(20)));
+    let c = TriadicCensus::from_graph(&OptSparseDigraph::from(line_graph(20)));
     assert_eq!(&[816, 306, 0, 0, 0, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                c.as_slice());
 
-    let c = TriadicCensus::from_graph(&OptimizedDiGraph::from(line_graph(40)));
+    let c = TriadicCensus::from_graph(&OptSparseDigraph::from(line_graph(40)));
     assert_eq!(&[8436, 1406, 0, 0, 0, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                c.as_slice());
 }
@@ -383,7 +383,7 @@ mod example_graphs;
 
 #[bench]
 fn bench_erdos_renyi_graph(b: &mut test::Bencher) {
-    let g = SimpleDiGraph::from(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
+    let g = SimpleDigraph::from(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
     b.iter(|| {
         let c = TriadicCensus::from_graph(&g);
         assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492, 7614, 15161, 16641, 2978], c.as_slice());
@@ -392,8 +392,8 @@ fn bench_erdos_renyi_graph(b: &mut test::Bencher) {
 
 #[bench]
 fn bench_erdos_renyi_graph_opt(b: &mut test::Bencher) {
-    let g = SimpleDiGraph::from(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
-    let g = OptimizedDiGraph::from(g);
+    let g = SimpleDigraph::from(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
+    let g = OptSparseDigraph::from(g);
     b.iter(|| {
         let c = TriadicCensus::from_graph(&g);
         assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492, 7614, 15161, 16641, 2978], c.as_slice());
