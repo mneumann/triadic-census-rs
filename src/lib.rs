@@ -7,6 +7,7 @@ use petgraph::{Graph, Directed};
 use petgraph::graph::{NodeIndex, IndexType};
 use std::collections::HashSet;
 use std::mem;
+use std::collections::BTreeMap;
 
 #[cfg(test)]
 extern crate test;
@@ -234,6 +235,65 @@ impl DirectedGraph for SimpleDiGraph {
     }
 }
 
+pub struct OptimizedDiGraph {
+    g: SimpleDiGraph,
+    edges: BTreeMap<usize, u64>,
+}
+
+#[inline]
+fn calc_index(n: usize, src: NodeIdx, dst: NodeIdx) -> (usize, u64) {
+    assert!(src < n && dst < n);
+    let idx = src * n + dst;
+    let idx_64 = idx / 64;
+    let bit_idx = idx % 64;
+    (idx_64, 1u64 << bit_idx as u64)
+}
+
+impl OptimizedDiGraph {
+    pub fn from(graph: SimpleDiGraph) -> OptimizedDiGraph {
+        let n = graph.node_count();
+
+        let mut edges: BTreeMap<usize, u64> = BTreeMap::new();
+
+        for edge in graph.g.raw_edges().iter() {
+            let src = edge.source().index();
+            let dst = edge.target().index();
+        
+            // treat as adjacency matrix (with `src` using rows and `dst` columns)
+            let (idx, bit_pattern) = calc_index(n, src, dst);
+
+            let entry = edges.entry(idx);
+            *entry.or_insert(0) |= bit_pattern;
+        }
+
+        OptimizedDiGraph {g: graph, edges: edges}
+    }
+}
+
+impl DirectedGraph for OptimizedDiGraph {
+    fn node_count(&self) -> NodeIdx {
+        self.g.node_count()
+    }
+
+    #[inline]
+    fn has_edge(&self, src: NodeIdx, dst: NodeIdx) -> bool {
+        let (idx, bit_pattern) = calc_index(self.g.node_count(), src, dst);
+
+        match self.edges.get(&idx) {
+            Some(&v) => {
+                (v & bit_pattern) != 0
+            }
+            _ => false
+        }
+    }
+
+    #[inline]
+    fn each_undirected_neighbor<F: FnMut(NodeIdx)>(&self, node: NodeIdx, callback: F) {
+        self.g.each_undirected_neighbor(node, callback);
+    }
+}
+
+
 #[test]
 fn test_simple() {
     let mut g = SimpleDiGraph::new();
@@ -296,11 +356,11 @@ fn circular_graph(n: u32) -> SimpleDiGraph {
 #[test]
 fn test_line_graph() {
     // Result compared with igraph.triad_census().
-    let c = TriadicCensus::from_graph(&line_graph(20));
+    let c = TriadicCensus::from_graph(&OptimizedDiGraph::from(line_graph(20)));
     assert_eq!(&[816, 306, 0, 0, 0, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                c.as_slice());
 
-    let c = TriadicCensus::from_graph(&line_graph(40));
+    let c = TriadicCensus::from_graph(&OptimizedDiGraph::from(line_graph(40)));
     assert_eq!(&[8436, 1406, 0, 0, 0, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                c.as_slice());
 }
@@ -325,6 +385,17 @@ mod example_graphs;
 fn bench_erdos_renyi_graph(b: &mut test::Bencher) {
     let g = SimpleDiGraph::from(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
     b.iter(|| {
-        let _c = TriadicCensus::from_graph(&g);
+        let c = TriadicCensus::from_graph(&g);
+        assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492, 7614, 15161, 16641, 2978], c.as_slice());
+    });
+}
+
+#[bench]
+fn bench_erdos_renyi_graph_opt(b: &mut test::Bencher) {
+    let g = SimpleDiGraph::from(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
+    let g = OptimizedDiGraph::from(g);
+    b.iter(|| {
+        let c = TriadicCensus::from_graph(&g);
+        assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492, 7614, 15161, 16641, 2978], c.as_slice());
     });
 }
