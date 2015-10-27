@@ -1,3 +1,4 @@
+#![feature(test)]
 extern crate petgraph;
 
 // XXX: Self-loops?
@@ -6,6 +7,9 @@ use petgraph::{Graph, Directed};
 use petgraph::graph::{NodeIndex, IndexType};
 use std::collections::HashSet;
 use std::mem;
+
+#[cfg(test)]
+extern crate test;
 
 #[repr(u8)]
 #[derive(Debug)]
@@ -46,14 +50,10 @@ pub type NodeIdx = usize;
 pub trait DirectedGraph {
     fn node_count(&self) -> NodeIdx;
     fn has_edge(&self, src: NodeIdx, dst: NodeIdx) -> bool;
-    fn each_undirected_neighbor<F:FnMut(NodeIdx)>(&self, node: NodeIdx, callback: F);
+    fn each_undirected_neighbor<F: FnMut(NodeIdx)>(&self, node: NodeIdx, callback: F);
 }
 
-fn tricode<G: DirectedGraph>(graph: &G,
-                               v: NodeIdx,
-                               u: NodeIdx,
-                               w: NodeIdx)
-                               -> usize {
+fn tricode<G: DirectedGraph>(graph: &G, v: NodeIdx, u: NodeIdx, w: NodeIdx) -> usize {
     let mut tricode = 0;
     if graph.has_edge(v, u) {
         tricode |= 1 << 0;
@@ -138,12 +138,20 @@ impl TriadicCensus {
 
         for v in 0..n {
             let mut neighbors_v = HashSet::new();
-            graph.each_undirected_neighbor(v, |u| if u > v { neighbors_v.insert(u); });
+            graph.each_undirected_neighbor(v, |u| {
+                if u > v {
+                    neighbors_v.insert(u);
+                }
+            });
 
             for u in neighbors_v {
                 let mut s = HashSet::new(); // XXX: Use bitset? // reuse
-                graph.each_undirected_neighbor(u, |nu| {s.insert(nu);});
-                graph.each_undirected_neighbor(v, |nv| {s.insert(nv);});
+                graph.each_undirected_neighbor(u, |nu| {
+                    s.insert(nu);
+                });
+                graph.each_undirected_neighbor(v, |nv| {
+                    s.insert(nv);
+                });
                 let _ = s.remove(&u);
                 let _ = s.remove(&v);
 
@@ -158,8 +166,7 @@ impl TriadicCensus {
                 census.add(tri_type, cnt as u64);
                 for w in s {
                     if u < w ||
-                       (v < w && w < u &&
-                        !(graph.has_edge(v, w) || graph.has_edge(w, v))) {
+                       (v < w && w < u && !(graph.has_edge(v, w) || graph.has_edge(w, v))) {
                         let tri_type = TriadType::from_u8(TRITYPES[tricode(graph, v, u, w)]);
                         census.add(tri_type, 1);
                     }
@@ -179,12 +186,12 @@ impl TriadicCensus {
 }
 
 pub struct SimpleDiGraph {
-    g: Graph<(), (), Directed>
+    g: Graph<(), (), Directed>,
 }
 
 impl SimpleDiGraph {
     pub fn new() -> SimpleDiGraph {
-        SimpleDiGraph {g: Graph::new()}
+        SimpleDiGraph { g: Graph::new() }
     }
 
     pub fn add_node(&mut self) -> NodeIdx {
@@ -193,6 +200,17 @@ impl SimpleDiGraph {
 
     pub fn add_edge(&mut self, src: NodeIdx, dst: NodeIdx) {
         self.g.add_edge(NodeIndex::new(src), NodeIndex::new(dst), ());
+    }
+
+    pub fn from(num_nodes: usize, edge_list: &[(NodeIdx, NodeIdx)]) -> SimpleDiGraph {
+        let mut g = SimpleDiGraph::new();
+        for _ in 0..num_nodes {
+            let _ = g.add_node();
+        }
+        for &(src, dst) in edge_list {
+            g.add_edge(src, dst);
+        }
+        g
     }
 }
 
@@ -207,7 +225,7 @@ impl DirectedGraph for SimpleDiGraph {
     }
 
     #[inline]
-    fn each_undirected_neighbor<F:FnMut(NodeIdx)>(&self, node: NodeIdx, mut callback: F) {
+    fn each_undirected_neighbor<F: FnMut(NodeIdx)>(&self, node: NodeIdx, mut callback: F) {
         for n in self.g.neighbors_undirected(NodeIndex::new(node)) {
             callback(n.index())
         }
@@ -296,4 +314,15 @@ fn test_circular_graph() {
     assert_eq!(&[8400, 1440, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                c.as_slice());
 
+}
+
+#[cfg(test)]
+mod example_graphs;
+
+#[bench]
+fn bench_erdos_renyi_graph(b: &mut test::Bencher) {
+    let g = SimpleDiGraph::from(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
+    b.iter(|| {
+        let _c = TriadicCensus::from_graph(&g);
+    });
 }
