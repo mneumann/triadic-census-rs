@@ -8,6 +8,7 @@ use petgraph::graph::{NodeIndex, IndexType};
 use std::collections::HashSet;
 use std::mem;
 use std::collections::BTreeMap;
+use std::cmp;
 
 #[cfg(test)]
 extern crate test;
@@ -293,6 +294,50 @@ impl DirectedGraph for OptSparseDigraph {
     }
 }
 
+pub struct OptDenseDigraph {
+    g: SimpleDigraph,
+    n: usize,
+    matrix: Box<[u64]>,
+}
+
+impl OptDenseDigraph {
+    pub fn from(graph: SimpleDigraph) -> OptDenseDigraph {
+        let n = graph.node_count();
+
+        let vec_len = (n * n) / 64 + cmp::min(1, ((n*n) % 64));
+        let mut matrix: Vec<u64> = (0..vec_len).map(|_| 0).collect();
+
+        for edge in graph.g.raw_edges().iter() {
+            let src = edge.source().index();
+            let dst = edge.target().index();
+        
+            // treat as adjacency matrix (with `src` using rows and `dst` columns)
+            let (idx, bit_pattern) = calc_index(n, src, dst);
+
+            matrix[idx] |= bit_pattern;
+        }
+
+        OptDenseDigraph {g: graph, n: n, matrix: matrix.into_boxed_slice()}
+    }
+}
+
+impl DirectedGraph for OptDenseDigraph {
+    fn node_count(&self) -> NodeIdx {
+        self.n
+    }
+
+    #[inline]
+    fn has_edge(&self, src: NodeIdx, dst: NodeIdx) -> bool {
+        let (idx, bit_pattern) = calc_index(self.n, src, dst);
+        (self.matrix[idx] & bit_pattern) != 0
+    }
+
+    #[inline]
+    fn each_undirected_neighbor<F: FnMut(NodeIdx)>(&self, node: NodeIdx, callback: F) {
+        self.g.each_undirected_neighbor(node, callback);
+    }
+}
+
 
 #[test]
 fn test_simple() {
@@ -356,11 +401,11 @@ fn circular_graph(n: u32) -> SimpleDigraph {
 #[test]
 fn test_line_graph() {
     // Result compared with igraph.triad_census().
-    let c = TriadicCensus::from_graph(&OptSparseDigraph::from(line_graph(20)));
+    let c = TriadicCensus::from_graph(&line_graph(20));
     assert_eq!(&[816, 306, 0, 0, 0, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                c.as_slice());
 
-    let c = TriadicCensus::from_graph(&OptSparseDigraph::from(line_graph(40)));
+    let c = TriadicCensus::from_graph(&line_graph(40));
     assert_eq!(&[8436, 1406, 0, 0, 0, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                c.as_slice());
 }
@@ -391,9 +436,19 @@ fn bench_erdos_renyi_graph(b: &mut test::Bencher) {
 }
 
 #[bench]
-fn bench_erdos_renyi_graph_opt(b: &mut test::Bencher) {
+fn bench_erdos_renyi_graph_opt_sparse(b: &mut test::Bencher) {
     let g = SimpleDigraph::from(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
     let g = OptSparseDigraph::from(g);
+    b.iter(|| {
+        let c = TriadicCensus::from_graph(&g);
+        assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492, 7614, 15161, 16641, 2978], c.as_slice());
+    });
+}
+
+#[bench]
+fn bench_erdos_renyi_graph_opt_dense(b: &mut test::Bencher) {
+    let g = SimpleDigraph::from(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
+    let g = OptDenseDigraph::from(g);
     b.iter(|| {
         let c = TriadicCensus::from_graph(&g);
         assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492, 7614, 15161, 16641, 2978], c.as_slice());
