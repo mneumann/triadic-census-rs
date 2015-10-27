@@ -138,7 +138,7 @@ impl TriadicCensus {
 
         let mut census = TriadicCensus::new();
         let mut neighbors_v = HashSet::new();
-        let mut s = HashSet::new(); // XXX: Use bitset? // reuse
+        let mut s = HashSet::new(); // XXX: Use bitset?
 
         for v in 0..n {
             neighbors_v.clear();
