@@ -9,3 +9,4 @@ keywords = ["graph", "algorithm"]
 
 [dependencies]
 petgraph = "*"
+bit-set = "^0.2.0"

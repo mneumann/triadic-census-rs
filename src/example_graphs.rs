@@ -1,6 +1,8 @@
+use super::NodeIdx;
+
 // An Erdos Renyi graph with 100 nodes and 0.5 probability
-pub const GRAPH1_NODES: usize = 100;
-pub static GRAPH1_EDGES: &'static [(usize, usize)] = &[(0, 2), (0, 4), (0, 6), (0, 9), (0, 10),
+pub const GRAPH1_NODES: NodeIdx = 100;
+pub static GRAPH1_EDGES: &'static [(NodeIdx, NodeIdx)] = &[(0, 2), (0, 4), (0, 6), (0, 9), (0, 10),
                                                        (0, 11), (0, 12), (0, 15), (0, 17),
                                                        (0, 18), (0, 19), (0, 20), (0, 28),
                                                        (0, 29), (0, 30), (0, 33), (0, 35),

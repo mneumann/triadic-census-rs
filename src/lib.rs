@@ -1,5 +1,6 @@
 #![cfg_attr(test, feature(test))]
 extern crate petgraph;
+extern crate bit_set;
 
 // XXX: Self-loops?
 
@@ -10,6 +11,7 @@ use std::mem;
 use std::collections::BTreeMap;
 use std::cmp;
 use std::convert::From;
+use bit_set::BitSet;
 
 #[cfg(test)]
 extern crate test;
@@ -54,16 +56,6 @@ pub trait DirectedGraph {
     fn node_count(&self) -> NodeIdx;
     fn has_edge(&self, src: NodeIdx, dst: NodeIdx) -> bool;
     fn each_undirected_neighbor<F: FnMut(NodeIdx)>(&self, node: NodeIdx, callback: F);
-
-    // excluding u and v
-    fn set_of_undirected_neighbors(&self, u: NodeIdx, v: NodeIdx) -> HashSet<NodeIdx> {
-        let mut s = HashSet::new(); // XXX: Use bitset?
-        self.each_undirected_neighbor(u, |nu| { s.insert(nu); });
-        self.each_undirected_neighbor(v, |nv| { s.insert(nv); });
-        let _ = s.remove(&u);
-        let _ = s.remove(&v);
-        return s;
-    }
 }
 
 fn tricode<G: DirectedGraph>(graph: &G, v: NodeIdx, u: NodeIdx, w: NodeIdx) -> usize {
@@ -152,6 +144,7 @@ impl<'a, G: DirectedGraph> From<&'a G> for TriadicCensus {
 
         let mut census = TriadicCensus::new();
         let mut neighbors_v = HashSet::new();
+        let mut s = BitSet::with_capacity(n as usize);
 
         for v in 0..n {
             neighbors_v.clear();
@@ -169,8 +162,14 @@ impl<'a, G: DirectedGraph> From<&'a G> for TriadicCensus {
                 };
 
                 let mut s_cnt = 0;
-                let s = graph.set_of_undirected_neighbors(u, v);
-                for &w in s.iter() {
+                s.clear();
+
+                graph.each_undirected_neighbor(u, |nu| { s.insert(nu as usize); });
+                graph.each_undirected_neighbor(v, |nv| { s.insert(nv as usize); });
+                let _ = s.remove(&u);
+                let _ = s.remove(&v);
+
+                for w in s.iter() {
                     s_cnt += 1;
                     if u < w ||
                        (v < w && w < u && !(graph.has_edge(v, w) || graph.has_edge(w, v))) {
@@ -213,7 +212,7 @@ impl SimpleDigraph {
         self.g.add_edge(NodeIndex::new(src), NodeIndex::new(dst), ());
     }
 
-    pub fn from_(num_nodes: usize, edge_list: &[(NodeIdx, NodeIdx)]) -> SimpleDigraph {
+    pub fn from_(num_nodes: NodeIdx, edge_list: &[(NodeIdx, NodeIdx)]) -> SimpleDigraph {
         let mut g = SimpleDigraph::new();
         for _ in 0..num_nodes {
             let _ = g.add_node();
@@ -250,7 +249,7 @@ impl DirectedGraph for SimpleDigraph {
 }
 
 #[inline]
-fn calc_index(n: usize, src: NodeIdx, dst: NodeIdx) -> (usize, u64) {
+fn calc_index(n: NodeIdx, src: NodeIdx, dst: NodeIdx) -> (NodeIdx, u64) {
     assert!(src < n && dst < n);
     let idx = src * n + dst;
     let idx_64 = idx / 64;
@@ -260,7 +259,7 @@ fn calc_index(n: usize, src: NodeIdx, dst: NodeIdx) -> (usize, u64) {
 
 pub struct OptSparseDigraph {
     g: SimpleDigraph,
-    edges: BTreeMap<usize, u64>,
+    edges: BTreeMap<NodeIdx, u64>,
 }
 
 impl From<SimpleDigraph> for OptSparseDigraph {
@@ -309,13 +308,13 @@ impl DirectedGraph for OptSparseDigraph {
 
 pub struct OptDenseDigraph {
     g: SimpleDigraph,
-    n: usize,
+    n: NodeIdx,
     matrix: Box<[u64]>,
 }
 
 impl From<SimpleDigraph> for OptDenseDigraph {
     fn from(graph: SimpleDigraph) -> OptDenseDigraph {
-        let n = graph.node_count();
+        let n = graph.node_count() as NodeIdx;
 
         let vec_len = (n * n) / 64 + cmp::min(1, ((n*n) % 64));
         let mut matrix: Vec<u64> = (0..vec_len).map(|_| 0).collect();
