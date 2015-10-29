@@ -164,8 +164,12 @@ impl<'a, G: DirectedGraph> From<&'a G> for TriadicCensus {
                 let mut s_cnt = 0;
                 s.clear();
 
-                graph.each_undirected_neighbor(u, |nu| { s.insert(nu as usize); });
-                graph.each_undirected_neighbor(v, |nv| { s.insert(nv as usize); });
+                graph.each_undirected_neighbor(u, |nu| {
+                    s.insert(nu as usize);
+                });
+                graph.each_undirected_neighbor(v, |nv| {
+                    s.insert(nv as usize);
+                });
                 let _ = s.remove(&u);
                 let _ = s.remove(&v);
 
@@ -225,7 +229,7 @@ impl SimpleDigraph {
 }
 
 impl From<Graph<(),(),Directed>> for SimpleDigraph {
-    fn from(g: Graph<(),(),Directed>) -> SimpleDigraph {
+    fn from(g: Graph<(), (), Directed>) -> SimpleDigraph {
         SimpleDigraph { g: g }
     }
 }
@@ -271,7 +275,7 @@ impl From<SimpleDigraph> for OptSparseDigraph {
         for edge in graph.g.raw_edges().iter() {
             let src = edge.source().index();
             let dst = edge.target().index();
-        
+
             // treat as adjacency matrix (with `src` using rows and `dst` columns)
             let (idx, bit_pattern) = calc_index(n, src, dst);
 
@@ -279,7 +283,10 @@ impl From<SimpleDigraph> for OptSparseDigraph {
             *entry.or_insert(0) |= bit_pattern;
         }
 
-        OptSparseDigraph {g: graph, edges: edges}
+        OptSparseDigraph {
+            g: graph,
+            edges: edges,
+        }
     }
 }
 
@@ -296,7 +303,7 @@ impl DirectedGraph for OptSparseDigraph {
             Some(&v) => {
                 (v & bit_pattern) != 0
             }
-            _ => false
+            _ => false,
         }
     }
 
@@ -316,20 +323,24 @@ impl From<SimpleDigraph> for OptDenseDigraph {
     fn from(graph: SimpleDigraph) -> OptDenseDigraph {
         let n = graph.node_count() as NodeIdx;
 
-        let vec_len = (n * n) / 64 + cmp::min(1, ((n*n) % 64));
+        let vec_len = (n * n) / 64 + cmp::min(1, ((n * n) % 64));
         let mut matrix: Vec<u64> = (0..vec_len).map(|_| 0).collect();
 
         for edge in graph.g.raw_edges().iter() {
             let src = edge.source().index();
             let dst = edge.target().index();
-        
+
             // treat as adjacency matrix (with `src` using rows and `dst` columns)
             let (idx, bit_pattern) = calc_index(n, src, dst);
 
             matrix[idx] |= bit_pattern;
         }
 
-        OptDenseDigraph {g: graph, n: n, matrix: matrix.into_boxed_slice()}
+        OptDenseDigraph {
+            g: graph,
+            n: n,
+            matrix: matrix.into_boxed_slice(),
+        }
     }
 }
 
@@ -443,7 +454,9 @@ fn bench_erdos_renyi_graph(b: &mut test::Bencher) {
     let g = SimpleDigraph::from_(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
     b.iter(|| {
         let c = TriadicCensus::from(&g);
-        assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492, 7614, 15161, 16641, 2978], c.as_slice());
+        assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492,
+                     7614, 15161, 16641, 2978],
+                   c.as_slice());
     });
 }
 
@@ -453,7 +466,9 @@ fn bench_erdos_renyi_graph_opt_sparse(b: &mut test::Bencher) {
     let g = OptSparseDigraph::from(g);
     b.iter(|| {
         let c = TriadicCensus::from(&g);
-        assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492, 7614, 15161, 16641, 2978], c.as_slice());
+        assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492,
+                     7614, 15161, 16641, 2978],
+                   c.as_slice());
     });
 }
 
@@ -463,6 +478,8 @@ fn bench_erdos_renyi_graph_opt_dense(b: &mut test::Bencher) {
     let g = OptDenseDigraph::from(g);
     b.iter(|| {
         let c = TriadicCensus::from(&g);
-        assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492, 7614, 15161, 16641, 2978], c.as_slice());
+        assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492,
+                     7614, 15161, 16641, 2978],
+                   c.as_slice());
     });
 }
