@@ -263,8 +263,8 @@ pub struct OptSparseDigraph {
     edges: BTreeMap<usize, u64>,
 }
 
-impl OptSparseDigraph {
-    pub fn from(graph: SimpleDigraph) -> OptSparseDigraph {
+impl From<SimpleDigraph> for OptSparseDigraph {
+    fn from(graph: SimpleDigraph) -> OptSparseDigraph {
         let n = graph.node_count();
 
         let mut edges: BTreeMap<usize, u64> = BTreeMap::new();
@@ -313,8 +313,8 @@ pub struct OptDenseDigraph {
     matrix: Box<[u64]>,
 }
 
-impl OptDenseDigraph {
-    pub fn from(graph: SimpleDigraph) -> OptDenseDigraph {
+impl From<SimpleDigraph> for OptDenseDigraph {
+    fn from(graph: SimpleDigraph) -> OptDenseDigraph {
         let n = graph.node_count();
 
         let vec_len = (n * n) / 64 + cmp::min(1, ((n*n) % 64));
