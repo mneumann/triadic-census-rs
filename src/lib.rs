@@ -9,6 +9,7 @@ use std::collections::HashSet;
 use std::mem;
 use std::collections::BTreeMap;
 use std::cmp;
+use std::convert::From;
 
 #[cfg(test)]
 extern crate test;
@@ -53,6 +54,16 @@ pub trait DirectedGraph {
     fn node_count(&self) -> NodeIdx;
     fn has_edge(&self, src: NodeIdx, dst: NodeIdx) -> bool;
     fn each_undirected_neighbor<F: FnMut(NodeIdx)>(&self, node: NodeIdx, callback: F);
+
+    // excluding u and v
+    fn set_of_undirected_neighbors(&self, u: NodeIdx, v: NodeIdx) -> HashSet<NodeIdx> {
+        let mut s = HashSet::new(); // XXX: Use bitset?
+        self.each_undirected_neighbor(u, |nu| { s.insert(nu); });
+        self.each_undirected_neighbor(v, |nv| { s.insert(nv); });
+        let _ = s.remove(&u);
+        let _ = s.remove(&v);
+        return s;
+    }
 }
 
 fn tricode<G: DirectedGraph>(graph: &G, v: NodeIdx, u: NodeIdx, w: NodeIdx) -> usize {
@@ -132,13 +143,15 @@ impl TriadicCensus {
         &self.census[..]
     }
 
+}
+
+impl<'a, G: DirectedGraph> From<&'a G> for TriadicCensus {
     /// XXX: Optimize: find_edge() is O(k) with k the number of edges.
-    pub fn from_graph<G: DirectedGraph>(graph: &G) -> TriadicCensus {
+    fn from(graph: &G) -> Self {
         let n = graph.node_count();
 
         let mut census = TriadicCensus::new();
         let mut neighbors_v = HashSet::new();
-        let mut s = HashSet::new(); // XXX: Use bitset?
 
         for v in 0..n {
             neighbors_v.clear();
@@ -149,32 +162,26 @@ impl TriadicCensus {
             });
 
             for &u in neighbors_v.iter() {
-                s.clear();
-                graph.each_undirected_neighbor(u, |nu| {
-                    s.insert(nu);
-                });
-                graph.each_undirected_neighbor(v, |nv| {
-                    s.insert(nv);
-                });
-                let _ = s.remove(&u);
-                let _ = s.remove(&v);
-
                 let tri_type = if graph.has_edge(v, u) && graph.has_edge(u, v) {
                     TriadType::T102
                 } else {
                     TriadType::T012
                 };
 
-                let cnt = n as i64 - s.len() as i64 - 2;
-                assert!(cnt >= 0);
-                census.add(tri_type, cnt as u64);
+                let mut s_cnt = 0;
+                let s = graph.set_of_undirected_neighbors(u, v);
                 for &w in s.iter() {
+                    s_cnt += 1;
                     if u < w ||
                        (v < w && w < u && !(graph.has_edge(v, w) || graph.has_edge(w, v))) {
                         let tri_type = TriadType::from_u8(TRITYPES[tricode(graph, v, u, w)]);
                         census.add(tri_type, 1);
                     }
                 }
+
+                let cnt = n as i64 - s_cnt as i64 - 2;
+                assert!(cnt >= 0);
+                census.add(tri_type, cnt as u64);
             }
         }
 
@@ -347,12 +354,12 @@ fn test_simple() {
     let n2 = g.add_node();
     let n3 = g.add_node();
 
-    let c1 = TriadicCensus::from_graph(&g);
+    let c1 = TriadicCensus::from(&g);
     assert_eq!(&[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                c1.as_slice());
 
     g.add_edge(n1, n3);
-    let c2 = TriadicCensus::from_graph(&g);
+    let c2 = TriadicCensus::from(&g);
     assert_eq!(&[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                c2.as_slice());
 
@@ -360,12 +367,12 @@ fn test_simple() {
     assert!(d > 1.414 && d < 1.415);
 
     g.add_edge(n3, n1);
-    let c3 = TriadicCensus::from_graph(&g);
+    let c3 = TriadicCensus::from(&g);
     assert_eq!(&[0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                c3.as_slice());
 
     g.add_edge(n2, n3);
-    let c4 = TriadicCensus::from_graph(&g);
+    let c4 = TriadicCensus::from(&g);
     assert_eq!(&[0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                c4.as_slice());
 }
@@ -401,11 +408,11 @@ fn circular_graph(n: u32) -> SimpleDigraph {
 #[test]
 fn test_line_graph() {
     // Result compared with igraph.triad_census().
-    let c = TriadicCensus::from_graph(&line_graph(20));
+    let c = TriadicCensus::from(&line_graph(20));
     assert_eq!(&[816, 306, 0, 0, 0, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                c.as_slice());
 
-    let c = TriadicCensus::from_graph(&line_graph(40));
+    let c = TriadicCensus::from(&line_graph(40));
     assert_eq!(&[8436, 1406, 0, 0, 0, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                c.as_slice());
 }
@@ -413,11 +420,11 @@ fn test_line_graph() {
 #[test]
 fn test_circular_graph() {
     // Result compared with igraph.triad_census().
-    let c = TriadicCensus::from_graph(&circular_graph(20));
+    let c = TriadicCensus::from(&circular_graph(20));
     assert_eq!(&[800, 320, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                c.as_slice());
 
-    let c = TriadicCensus::from_graph(&circular_graph(40));
+    let c = TriadicCensus::from(&circular_graph(40));
     assert_eq!(&[8400, 1440, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                c.as_slice());
 
@@ -430,7 +437,7 @@ mod example_graphs;
 fn bench_erdos_renyi_graph(b: &mut test::Bencher) {
     let g = SimpleDigraph::from(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
     b.iter(|| {
-        let c = TriadicCensus::from_graph(&g);
+        let c = TriadicCensus::from(&g);
         assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492, 7614, 15161, 16641, 2978], c.as_slice());
     });
 }
@@ -440,7 +447,7 @@ fn bench_erdos_renyi_graph_opt_sparse(b: &mut test::Bencher) {
     let g = SimpleDigraph::from(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
     let g = OptSparseDigraph::from(g);
     b.iter(|| {
-        let c = TriadicCensus::from_graph(&g);
+        let c = TriadicCensus::from(&g);
         assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492, 7614, 15161, 16641, 2978], c.as_slice());
     });
 }
@@ -450,7 +457,7 @@ fn bench_erdos_renyi_graph_opt_dense(b: &mut test::Bencher) {
     let g = SimpleDigraph::from(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
     let g = OptDenseDigraph::from(g);
     b.iter(|| {
-        let c = TriadicCensus::from_graph(&g);
+        let c = TriadicCensus::from(&g);
         assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492, 7614, 15161, 16641, 2978], c.as_slice());
     });
 }
