@@ -1,4 +1,4 @@
-#![feature(test)]
+#![cfg_attr(test, feature(test))]
 extern crate petgraph;
 
 // XXX: Self-loops?
