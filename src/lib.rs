@@ -358,9 +358,11 @@ impl DirectedGraph for OptDenseDigraph {
         (self.matrix[idx as usize] & bit_pattern) != 0
     }
 
-    #[inline]
-    fn each_undirected_neighbor<F: FnMut(NodeIdx)>(&self, node: NodeIdx, callback: F) {
-        self.g.each_undirected_neighbor(node, callback);
+    #[inline(always)]
+    fn each_undirected_neighbor<F: FnMut(NodeIdx)>(&self, node: NodeIdx, mut callback: F) {
+        for n in self.g.g.neighbors_undirected(NodeIndex::new(node as usize)) {
+            callback(n.index() as NodeIdx)
+        }
     }
 }
 
