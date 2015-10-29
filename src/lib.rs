@@ -213,7 +213,7 @@ impl SimpleDigraph {
         self.g.add_edge(NodeIndex::new(src), NodeIndex::new(dst), ());
     }
 
-    pub fn from(num_nodes: usize, edge_list: &[(NodeIdx, NodeIdx)]) -> SimpleDigraph {
+    pub fn from_(num_nodes: usize, edge_list: &[(NodeIdx, NodeIdx)]) -> SimpleDigraph {
         let mut g = SimpleDigraph::new();
         for _ in 0..num_nodes {
             let _ = g.add_node();
@@ -441,7 +441,7 @@ mod example_graphs;
 
 #[bench]
 fn bench_erdos_renyi_graph(b: &mut test::Bencher) {
-    let g = SimpleDigraph::from(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
+    let g = SimpleDigraph::from_(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
     b.iter(|| {
         let c = TriadicCensus::from(&g);
         assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492, 7614, 15161, 16641, 2978], c.as_slice());
@@ -450,7 +450,7 @@ fn bench_erdos_renyi_graph(b: &mut test::Bencher) {
 
 #[bench]
 fn bench_erdos_renyi_graph_opt_sparse(b: &mut test::Bencher) {
-    let g = SimpleDigraph::from(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
+    let g = SimpleDigraph::from_(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
     let g = OptSparseDigraph::from(g);
     b.iter(|| {
         let c = TriadicCensus::from(&g);
@@ -460,7 +460,7 @@ fn bench_erdos_renyi_graph_opt_sparse(b: &mut test::Bencher) {
 
 #[bench]
 fn bench_erdos_renyi_graph_opt_dense(b: &mut test::Bencher) {
-    let g = SimpleDigraph::from(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
+    let g = SimpleDigraph::from_(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
     let g = OptDenseDigraph::from(g);
     b.iter(|| {
         let c = TriadicCensus::from(&g);
