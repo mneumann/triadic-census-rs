@@ -170,10 +170,11 @@ impl<'a, G: DirectedGraph> From<&'a G> for TriadicCensus {
                 graph.each_undirected_neighbor(v, |nv| {
                     s.insert(nv as usize);
                 });
-                let _ = s.remove(&u);
-                let _ = s.remove(&v);
+                let _ = s.remove(&(u as usize));
+                let _ = s.remove(&(v as usize));
 
                 for w in s.iter() {
+                    let w = w as NodeIdx;
                     s_cnt += 1;
                     if u < w ||
                        (v < w && w < u && !(graph.has_edge(v, w) || graph.has_edge(w, v))) {
@@ -209,11 +210,11 @@ impl SimpleDigraph {
     }
 
     pub fn add_node(&mut self) -> NodeIdx {
-        self.g.add_node(()).index()
+        self.g.add_node(()).index() as NodeIdx
     }
 
     pub fn add_edge(&mut self, src: NodeIdx, dst: NodeIdx) {
-        self.g.add_edge(NodeIndex::new(src), NodeIndex::new(dst), ());
+        self.g.add_edge(NodeIndex::new(src as usize), NodeIndex::new(dst as usize), ());
     }
 
     pub fn from_(num_nodes: NodeIdx, edge_list: &[(NodeIdx, NodeIdx)]) -> SimpleDigraph {
@@ -236,18 +237,18 @@ impl From<Graph<(),(),Directed>> for SimpleDigraph {
 
 impl DirectedGraph for SimpleDigraph {
     fn node_count(&self) -> NodeIdx {
-        self.g.node_count()
+        self.g.node_count() as NodeIdx
     }
 
     #[inline]
     fn has_edge(&self, src: NodeIdx, dst: NodeIdx) -> bool {
-        self.g.find_edge(NodeIndex::new(src), NodeIndex::new(dst)).is_some()
+        self.g.find_edge(NodeIndex::new(src as usize), NodeIndex::new(dst as usize)).is_some()
     }
 
     #[inline]
     fn each_undirected_neighbor<F: FnMut(NodeIdx)>(&self, node: NodeIdx, mut callback: F) {
-        for n in self.g.neighbors_undirected(NodeIndex::new(node)) {
-            callback(n.index())
+        for n in self.g.neighbors_undirected(NodeIndex::new(node as usize)) {
+            callback(n.index() as NodeIdx)
         }
     }
 }
@@ -270,11 +271,11 @@ impl From<SimpleDigraph> for OptSparseDigraph {
     fn from(graph: SimpleDigraph) -> OptSparseDigraph {
         let n = graph.node_count();
 
-        let mut edges: BTreeMap<usize, u64> = BTreeMap::new();
+        let mut edges: BTreeMap<NodeIdx, u64> = BTreeMap::new();
 
         for edge in graph.g.raw_edges().iter() {
-            let src = edge.source().index();
-            let dst = edge.target().index();
+            let src = edge.source().index() as NodeIdx;
+            let dst = edge.target().index() as NodeIdx;
 
             // treat as adjacency matrix (with `src` using rows and `dst` columns)
             let (idx, bit_pattern) = calc_index(n, src, dst);
@@ -327,13 +328,13 @@ impl From<SimpleDigraph> for OptDenseDigraph {
         let mut matrix: Vec<u64> = (0..vec_len).map(|_| 0).collect();
 
         for edge in graph.g.raw_edges().iter() {
-            let src = edge.source().index();
-            let dst = edge.target().index();
+            let src = edge.source().index() as NodeIdx;
+            let dst = edge.target().index() as NodeIdx;
 
             // treat as adjacency matrix (with `src` using rows and `dst` columns)
             let (idx, bit_pattern) = calc_index(n, src, dst);
 
-            matrix[idx] |= bit_pattern;
+            matrix[idx as usize] |= bit_pattern;
         }
 
         OptDenseDigraph {
@@ -352,7 +353,7 @@ impl DirectedGraph for OptDenseDigraph {
     #[inline]
     fn has_edge(&self, src: NodeIdx, dst: NodeIdx) -> bool {
         let (idx, bit_pattern) = calc_index(self.n, src, dst);
-        (self.matrix[idx] & bit_pattern) != 0
+        (self.matrix[idx as usize] & bit_pattern) != 0
     }
 
     #[inline]
