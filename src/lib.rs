@@ -225,6 +225,12 @@ impl SimpleDigraph {
     }
 }
 
+impl From<Graph<(),(),Directed>> for SimpleDigraph {
+    fn from(g: Graph<(),(),Directed>) -> SimpleDigraph {
+        SimpleDigraph { g: g }
+    }
+}
+
 impl DirectedGraph for SimpleDigraph {
     fn node_count(&self) -> NodeIdx {
         self.g.node_count()
