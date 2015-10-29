@@ -1,6 +1,6 @@
 #![cfg_attr(test, feature(test))]
 extern crate petgraph;
-extern crate bit_set;
+extern crate fixedbitset;
 
 // XXX: Self-loops?
 
@@ -11,7 +11,7 @@ use std::mem;
 use std::collections::BTreeMap;
 use std::cmp;
 use std::convert::From;
-use bit_set::BitSet;
+use fixedbitset::FixedBitSet;
 
 #[cfg(test)]
 extern crate test;
@@ -144,7 +144,7 @@ impl<'a, G: DirectedGraph> From<&'a G> for TriadicCensus {
 
         let mut census = TriadicCensus::new();
         let mut neighbors_v = HashSet::new();
-        let mut s = BitSet::with_capacity(n as usize);
+        let mut s = FixedBitSet::with_capacity(n as usize);
 
         for v in 0..n {
             neighbors_v.clear();
@@ -162,25 +162,27 @@ impl<'a, G: DirectedGraph> From<&'a G> for TriadicCensus {
                 };
 
                 let mut s_cnt = 0;
+
+                // `s` stores the neighbors that we have already seen.
                 s.clear();
+                s.insert(u as usize);
+                s.insert(v as usize);
 
-                graph.each_undirected_neighbor(u, |nu| {
-                    s.insert(nu as usize);
-                });
-                graph.each_undirected_neighbor(v, |nv| {
-                    s.insert(nv as usize);
-                });
-                let _ = s.remove(&(u as usize));
-                let _ = s.remove(&(v as usize));
+                {
+                    let mut f = |w| {
+                        if !s.contains(w as usize ) {
+                            s.insert(w as usize);
+                            s_cnt += 1;
 
-                for w in s.iter() {
-                    let w = w as NodeIdx;
-                    s_cnt += 1;
-                    if u < w ||
-                       (v < w && w < u && !(graph.has_edge(v, w) || graph.has_edge(w, v))) {
-                        let tri_type = TriadType::from_u8(TRITYPES[tricode(graph, v, u, w)]);
-                        census.add(tri_type, 1);
-                    }
+                            if u < w ||
+                               (v < w && w < u && !(graph.has_edge(v, w) || graph.has_edge(w, v))) {
+                                let tri_type = TriadType::from_u8(TRITYPES[tricode(graph, v, u, w)]);
+                                census.add(tri_type, 1);
+                            }
+                        }
+                    };
+                    graph.each_undirected_neighbor(u, &mut f);
+                    graph.each_undirected_neighbor(v, &mut f);
                 }
 
                 let cnt = n as i64 - s_cnt as i64 - 2;
