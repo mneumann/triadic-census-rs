@@ -202,24 +202,24 @@ impl<'a, G: DirectedGraph> From<&'a G> for TriadicCensus {
     }
 }
 
-pub struct SimpleDigraph {
-    g: Graph<(), (), Directed>,
+pub struct SimpleDigraph<N,E> {
+    g: Graph<N, E, Directed>,
 }
 
-impl SimpleDigraph {
-    pub fn new() -> SimpleDigraph {
+impl<N:Default,E:Default> SimpleDigraph<N,E> {
+    pub fn new() -> SimpleDigraph<N,E> {
         SimpleDigraph { g: Graph::new() }
     }
 
     pub fn add_node(&mut self) -> NodeIdx {
-        self.g.add_node(()).index() as NodeIdx
+        self.g.add_node(N::default()).index() as NodeIdx
     }
 
     pub fn add_edge(&mut self, src: NodeIdx, dst: NodeIdx) {
-        self.g.add_edge(NodeIndex::new(src as usize), NodeIndex::new(dst as usize), ());
+        self.g.add_edge(NodeIndex::new(src as usize), NodeIndex::new(dst as usize), E::default());
     }
 
-    pub fn from_(num_nodes: NodeIdx, edge_list: &[(NodeIdx, NodeIdx)]) -> SimpleDigraph {
+    pub fn from_(num_nodes: NodeIdx, edge_list: &[(NodeIdx, NodeIdx)]) -> SimpleDigraph<N,E> {
         let mut g = SimpleDigraph::new();
         for _ in 0..num_nodes {
             let _ = g.add_node();
@@ -231,13 +231,13 @@ impl SimpleDigraph {
     }
 }
 
-impl From<Graph<(),(),Directed>> for SimpleDigraph {
-    fn from(g: Graph<(), (), Directed>) -> SimpleDigraph {
+impl<N,E> From<Graph<N,E,Directed>> for SimpleDigraph<N,E> {
+    fn from(g: Graph<N, E, Directed>) -> SimpleDigraph<N,E> {
         SimpleDigraph { g: g }
     }
 }
 
-impl DirectedGraph for SimpleDigraph {
+impl<N,E> DirectedGraph for SimpleDigraph<N,E> {
     fn node_count(&self) -> NodeIdx {
         self.g.node_count() as NodeIdx
     }
@@ -264,13 +264,13 @@ fn calc_index(n: NodeIdx, src: NodeIdx, dst: NodeIdx) -> (NodeIdx, u64) {
     (idx_64, 1u64 << bit_idx as u64)
 }
 
-pub struct OptSparseDigraph {
-    g: SimpleDigraph,
+pub struct OptSparseDigraph<N,E> {
+    g: SimpleDigraph<N,E>,
     edges: BTreeMap<NodeIdx, u64>,
 }
 
-impl From<SimpleDigraph> for OptSparseDigraph {
-    fn from(graph: SimpleDigraph) -> OptSparseDigraph {
+impl<N,E> From<SimpleDigraph<N,E>> for OptSparseDigraph<N,E> {
+    fn from(graph: SimpleDigraph<N,E>) -> OptSparseDigraph<N,E> {
         let n = graph.node_count();
 
         let mut edges: BTreeMap<NodeIdx, u64> = BTreeMap::new();
@@ -293,7 +293,7 @@ impl From<SimpleDigraph> for OptSparseDigraph {
     }
 }
 
-impl DirectedGraph for OptSparseDigraph {
+impl<N,E> DirectedGraph for OptSparseDigraph<N,E> {
     fn node_count(&self) -> NodeIdx {
         self.g.node_count()
     }
@@ -316,14 +316,14 @@ impl DirectedGraph for OptSparseDigraph {
     }
 }
 
-pub struct OptDenseDigraph {
-    g: SimpleDigraph,
+pub struct OptDenseDigraph<N,E> {
+    g: SimpleDigraph<N,E>,
     n: NodeIdx,
     matrix: Box<[u64]>,
 }
 
-impl From<SimpleDigraph> for OptDenseDigraph {
-    fn from(graph: SimpleDigraph) -> OptDenseDigraph {
+impl<N,E> From<SimpleDigraph<N,E>> for OptDenseDigraph<N,E> {
+    fn from(graph: SimpleDigraph<N,E>) -> OptDenseDigraph<N,E> {
         let n = graph.node_count() as NodeIdx;
 
         let vec_len = (n * n) / 64 + cmp::min(1, ((n * n) % 64));
@@ -347,7 +347,7 @@ impl From<SimpleDigraph> for OptDenseDigraph {
     }
 }
 
-impl DirectedGraph for OptDenseDigraph {
+impl<N,E> DirectedGraph for OptDenseDigraph<N,E> {
     fn node_count(&self) -> NodeIdx {
         self.n
     }
@@ -369,7 +369,7 @@ impl DirectedGraph for OptDenseDigraph {
 
 #[test]
 fn test_simple() {
-    let mut g = SimpleDigraph::new();
+    let mut g: SimpleDigraph<(),()> = SimpleDigraph::new();
 
     let n1 = g.add_node();
     let n2 = g.add_node();
@@ -399,7 +399,7 @@ fn test_simple() {
 }
 
 #[cfg(test)]
-fn line_graph(n: u32) -> SimpleDigraph {
+fn line_graph(n: u32) -> SimpleDigraph<(),()> {
     let mut g = SimpleDigraph::new();
 
     let mut prev = g.add_node();
@@ -412,7 +412,7 @@ fn line_graph(n: u32) -> SimpleDigraph {
 }
 
 #[cfg(test)]
-fn circular_graph(n: u32) -> SimpleDigraph {
+fn circular_graph(n: u32) -> SimpleDigraph<(),()> {
     let mut g = SimpleDigraph::new();
 
     let first = g.add_node();
@@ -456,7 +456,7 @@ mod example_graphs;
 
 #[bench]
 fn bench_erdos_renyi_graph(b: &mut test::Bencher) {
-    let g = SimpleDigraph::from_(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
+    let g: SimpleDigraph<(),()> = SimpleDigraph::from_(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
     b.iter(|| {
         let c = TriadicCensus::from(&g);
         assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492,
@@ -467,7 +467,7 @@ fn bench_erdos_renyi_graph(b: &mut test::Bencher) {
 
 #[bench]
 fn bench_erdos_renyi_graph_opt_sparse(b: &mut test::Bencher) {
-    let g = SimpleDigraph::from_(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
+    let g: SimpleDigraph<(),()> = SimpleDigraph::from_(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
     let g = OptSparseDigraph::from(g);
     b.iter(|| {
         let c = TriadicCensus::from(&g);
@@ -479,7 +479,7 @@ fn bench_erdos_renyi_graph_opt_sparse(b: &mut test::Bencher) {
 
 #[bench]
 fn bench_erdos_renyi_graph_opt_dense(b: &mut test::Bencher) {
-    let g = SimpleDigraph::from_(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
+    let g: SimpleDigraph<(),()> = SimpleDigraph::from_(example_graphs::GRAPH1_NODES, &example_graphs::GRAPH1_EDGES);
     let g = OptDenseDigraph::from(g);
     b.iter(|| {
         let c = TriadicCensus::from(&g);
