@@ -138,7 +138,6 @@ impl TriadicCensus {
 }
 
 impl<'a, G: DirectedGraph> From<&'a G> for TriadicCensus {
-    /// XXX: Optimize: find_edge() is O(k) with k the number of edges.
     fn from(graph: &G) -> Self {
         let n = graph.node_count();
 
@@ -322,34 +321,9 @@ impl<N,E> DirectedGraph for OptSparseDigraph<N,E> {
 }
 
 pub struct OptDenseDigraph<N, E> {
-    g: SimpleDigraph<N, E>,
+    g: Graph<N, E, Directed>,
     n: NodeIdx,
     matrix: Box<[u64]>,
-}
-
-impl<N,E> From<SimpleDigraph<N,E>> for OptDenseDigraph<N,E> {
-    fn from(graph: SimpleDigraph<N, E>) -> OptDenseDigraph<N, E> {
-        let n = graph.node_count() as NodeIdx;
-
-        let vec_len = (n * n) / 64 + cmp::min(1, ((n * n) % 64));
-        let mut matrix: Vec<u64> = (0..vec_len).map(|_| 0).collect();
-
-        for edge in graph.g.raw_edges().iter() {
-            let src = edge.source().index() as NodeIdx;
-            let dst = edge.target().index() as NodeIdx;
-
-            // treat as adjacency matrix (with `src` using rows and `dst` columns)
-            let (idx, bit_pattern) = calc_index(n, src, dst);
-
-            matrix[idx as usize] |= bit_pattern;
-        }
-
-        OptDenseDigraph {
-            g: graph,
-            n: n,
-            matrix: matrix.into_boxed_slice(),
-        }
-    }
 }
 
 impl<N,E> DirectedGraph for OptDenseDigraph<N,E> {
@@ -365,9 +339,52 @@ impl<N,E> DirectedGraph for OptDenseDigraph<N,E> {
 
     #[inline(always)]
     fn each_undirected_neighbor<F: FnMut(NodeIdx)>(&self, node: NodeIdx, mut callback: F) {
-        for n in self.g.g.neighbors_undirected(NodeIndex::new(node as usize)) {
+        for n in self.g.neighbors_undirected(NodeIndex::new(node as usize)) {
             callback(n.index() as NodeIdx)
         }
+    }
+}
+
+impl<N:Default,E:Default> OptDenseDigraph<N,E> {
+    fn new(n: usize) -> OptDenseDigraph<N, E> {
+        let vec_len = (n * n) / 64 + cmp::min(1, ((n * n) % 64));
+        let matrix: Vec<u64> = (0..vec_len).map(|_| 0).collect();
+
+        OptDenseDigraph {
+            g: Graph::with_capacity(n, n),
+            n: n,
+            matrix: matrix.into_boxed_slice(),
+        }
+    }
+
+    pub fn ref_graph(&self) -> &Graph<N, E, Directed> {
+        &self.g
+    }
+
+    pub fn add_node(&mut self) -> NodeIdx {
+        self.g.add_node(N::default()).index() as NodeIdx
+    }
+
+    pub fn add_edge(&mut self, src: NodeIdx, dst: NodeIdx) {
+        self.g.add_edge(NodeIndex::new(src as usize),
+                        NodeIndex::new(dst as usize),
+                        E::default());
+
+        // treat as adjacency matrix (with `src` using rows and `dst` columns)
+        let (idx, bit_pattern) = calc_index(self.n, src, dst);
+
+        self.matrix[idx as usize] |= bit_pattern;
+    }
+
+    pub fn from_(num_nodes: NodeIdx, edge_list: &[(NodeIdx, NodeIdx)]) -> OptDenseDigraph<N, E> {
+        let mut g = OptDenseDigraph::new(num_nodes);
+        for _ in 0..num_nodes {
+            let _ = g.add_node();
+        }
+        for &(src, dst) in edge_list {
+            g.add_edge(src, dst);
+        }
+        g
     }
 }
 
@@ -486,9 +503,8 @@ fn bench_erdos_renyi_graph_opt_sparse(b: &mut test::Bencher) {
 
 #[bench]
 fn bench_erdos_renyi_graph_opt_dense(b: &mut test::Bencher) {
-    let g: SimpleDigraph<(), ()> = SimpleDigraph::from_(example_graphs::GRAPH1_NODES,
-                                                        &example_graphs::GRAPH1_EDGES);
-    let g = OptDenseDigraph::from(g);
+    let g: OptDenseDigraph<(), ()> = OptDenseDigraph::from_(example_graphs::GRAPH1_NODES,
+                                                            &example_graphs::GRAPH1_EDGES);
     b.iter(|| {
         let c = TriadicCensus::from(&g);
         assert_eq!(&[2484, 14525, 7954, 7156, 7237, 14346, 15426, 15413, 14041, 4778, 8454, 7492,
