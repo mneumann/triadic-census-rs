@@ -388,6 +388,29 @@ impl<N:Default,E:Default> OptDenseDigraph<N,E> {
     }
 }
 
+impl<N,E> From<Graph<N, E, Directed>> for OptDenseDigraph<N,E> {
+    fn from(graph: Graph<N, E, Directed>) -> OptDenseDigraph<N, E> {
+        let n = graph.node_count();
+
+        let vec_len = (n * n) / 64 + cmp::min(1, ((n * n) % 64));
+        let mut matrix: Vec<u64> = (0..vec_len).map(|_| 0).collect();
+
+        for edge in graph.raw_edges().iter() {
+            let src = edge.source().index() as NodeIdx;
+            let dst = edge.target().index() as NodeIdx;
+
+            // treat as adjacency matrix (with `src` using rows and `dst` columns)
+            let (idx, bit_pattern) = calc_index(n, src, dst);
+            matrix[idx as usize] |= bit_pattern;
+        }
+
+        OptDenseDigraph {
+            g: graph,
+            n: n,
+            matrix: matrix.into_boxed_slice(),
+        }
+    }
+}
 
 #[test]
 fn test_simple() {
