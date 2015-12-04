@@ -346,7 +346,7 @@ impl<N,E> DirectedGraph for OptDenseDigraph<N,E> {
 }
 
 impl<N:Default,E:Default> OptDenseDigraph<N,E> {
-    fn new(n: usize) -> OptDenseDigraph<N, E> {
+    pub fn new(n: usize) -> OptDenseDigraph<N, E> {
         let vec_len = (n * n) / 64 + cmp::min(1, ((n * n) % 64));
         let matrix: Vec<u64> = (0..vec_len).map(|_| 0).collect();
 
