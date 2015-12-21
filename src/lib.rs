@@ -134,7 +134,6 @@ impl TriadicCensus {
     pub fn as_slice<'a>(&'a self) -> &'a [u64] {
         &self.census[..]
     }
-
 }
 
 impl<'a, G: DirectedGraph> From<&'a G> for TriadicCensus {
@@ -210,7 +209,7 @@ pub struct SimpleDigraph<N, E> {
     g: Graph<N, E, Directed>,
 }
 
-impl<N:Default,E:Default> SimpleDigraph<N,E> {
+impl<N: Default, E: Default> SimpleDigraph<N, E> {
     pub fn new() -> SimpleDigraph<N, E> {
         SimpleDigraph { g: Graph::new() }
     }
@@ -237,13 +236,13 @@ impl<N:Default,E:Default> SimpleDigraph<N,E> {
     }
 }
 
-impl<N,E> From<Graph<N,E,Directed>> for SimpleDigraph<N,E> {
+impl<N, E> From<Graph<N, E, Directed>> for SimpleDigraph<N, E> {
     fn from(g: Graph<N, E, Directed>) -> SimpleDigraph<N, E> {
         SimpleDigraph { g: g }
     }
 }
 
-impl<N,E> DirectedGraph for SimpleDigraph<N,E> {
+impl<N, E> DirectedGraph for SimpleDigraph<N, E> {
     fn node_count(&self) -> NodeIdx {
         self.g.node_count() as NodeIdx
     }
@@ -275,7 +274,7 @@ pub struct OptSparseDigraph<N, E> {
     edges: BTreeMap<NodeIdx, u64>,
 }
 
-impl<N,E> From<SimpleDigraph<N,E>> for OptSparseDigraph<N,E> {
+impl<N, E> From<SimpleDigraph<N, E>> for OptSparseDigraph<N, E> {
     fn from(graph: SimpleDigraph<N, E>) -> OptSparseDigraph<N, E> {
         let n = graph.node_count();
 
@@ -299,7 +298,7 @@ impl<N,E> From<SimpleDigraph<N,E>> for OptSparseDigraph<N,E> {
     }
 }
 
-impl<N,E> DirectedGraph for OptSparseDigraph<N,E> {
+impl<N, E> DirectedGraph for OptSparseDigraph<N, E> {
     fn node_count(&self) -> NodeIdx {
         self.g.node_count()
     }
@@ -309,9 +308,7 @@ impl<N,E> DirectedGraph for OptSparseDigraph<N,E> {
         let (idx, bit_pattern) = calc_index(self.g.node_count(), src, dst);
 
         match self.edges.get(&idx) {
-            Some(&v) => {
-                (v & bit_pattern) != 0
-            }
+            Some(&v) => (v & bit_pattern) != 0,
             _ => false,
         }
     }
@@ -328,7 +325,7 @@ pub struct OptDenseDigraph<N, E> {
     matrix: Box<[u64]>,
 }
 
-impl<N,E> DirectedGraph for OptDenseDigraph<N,E> {
+impl<N, E> DirectedGraph for OptDenseDigraph<N, E> {
     fn node_count(&self) -> NodeIdx {
         self.n
     }
@@ -347,7 +344,7 @@ impl<N,E> DirectedGraph for OptDenseDigraph<N,E> {
     }
 }
 
-impl<N:Default,E:Default> OptDenseDigraph<N,E> {
+impl<N: Default, E: Default> OptDenseDigraph<N, E> {
     pub fn new(n: usize) -> OptDenseDigraph<N, E> {
         let vec_len = (n * n) / 64 + cmp::min(1, ((n * n) % 64));
         let matrix: Vec<u64> = (0..vec_len).map(|_| 0).collect();
@@ -390,7 +387,7 @@ impl<N:Default,E:Default> OptDenseDigraph<N,E> {
     }
 }
 
-impl<N,E> From<Graph<N, E, Directed>> for OptDenseDigraph<N,E> {
+impl<N, E> From<Graph<N, E, Directed>> for OptDenseDigraph<N, E> {
     fn from(graph: Graph<N, E, Directed>) -> OptDenseDigraph<N, E> {
         let n = graph.node_count();
 
