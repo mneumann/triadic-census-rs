@@ -198,8 +198,10 @@ impl<'a, G: DirectedGraph> From<&'a G> for TriadicCensus {
             sum += cnt;
         }
         let n = n as u64;
+
         // Integer division below is guaranteed to produce an integral result
-        census.set(TriadType::T003, (n * (n - 1) * (n - 2)) / 6 - sum);
+        let t003 = n.checked_mul(n - 1).and_then(|x| x.checked_mul(n - 2)).map(|x| x / 6 - sum);
+        census.set(TriadType::T003, t003.unwrap_or(u64::max_value()));
         return census;
     }
 }
