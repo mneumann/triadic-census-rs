@@ -208,6 +208,7 @@ impl<'a, G: DirectedGraph> From<&'a G> for TriadicCensus {
     }
 }
 
+#[derive(Debug)]
 pub struct SimpleDigraph<N, E> {
     g: Graph<N, E, Directed>,
 }
@@ -272,6 +273,7 @@ fn calc_index(n: NodeIdx, src: NodeIdx, dst: NodeIdx) -> (NodeIdx, u64) {
     (idx_64, 1u64 << bit_idx as u64)
 }
 
+#[derive(Debug)]
 pub struct OptSparseDigraph<N, E> {
     g: SimpleDigraph<N, E>,
     edges: BTreeMap<NodeIdx, u64>,
@@ -322,6 +324,7 @@ impl<N, E> DirectedGraph for OptSparseDigraph<N, E> {
     }
 }
 
+#[derive(Debug)]
 pub struct OptDenseDigraph<N, E> {
     g: Graph<N, E, Directed>,
     n: NodeIdx,
