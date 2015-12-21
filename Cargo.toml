@@ -8,5 +8,5 @@ description = "Calculates the triadic census for directed graphs"
 keywords = ["graph", "algorithm"]
 
 [dependencies]
-petgraph = "*"
-fixedbitset = "^0.0.5"
+petgraph = "0.2.0"
+fixedbitset = "0.1.0"
