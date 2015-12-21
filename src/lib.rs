@@ -265,14 +265,11 @@ impl<N, E> DirectedGraph for SimpleDigraph<N, E> {
 
 #[inline]
 fn calc_index(n: NodeIdx, src: NodeIdx, dst: NodeIdx) -> (NodeIdx, u64) {
-    if src < n && dst < n {
-        let idx = src * n + dst;
-        let idx_64 = idx / 64;
-        let bit_idx = idx % 64;
-        (idx_64, 1u64 << bit_idx as u64)
-    } else {
-        panic!(format!("src: {}, dst: {}, n: {}", src, dst, n));
-    }
+    assert!(src < n && dst < n);
+    let idx = src * n + dst;
+    let idx_64 = idx / 64;
+    let bit_idx = idx % 64;
+    (idx_64, 1u64 << bit_idx as u64)
 }
 
 pub struct OptSparseDigraph<N, E> {
