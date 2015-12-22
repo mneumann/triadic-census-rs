@@ -142,7 +142,9 @@ impl<'a, G: DirectedGraph> From<&'a G> for TriadicCensus {
 
         let mut census = TriadicCensus::new();
         // We cannot calculate the triadic census for graphs with less than 3 nodes.
-        if n < 3 { return census; }
+        if n < 3 {
+            return census;
+        }
 
         let mut neighbors_v = HashSet::new();
         let mut s = FixedBitSet::with_capacity(n as usize);
