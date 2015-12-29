@@ -368,19 +368,28 @@ impl<N: Default, E: Default> OptDenseDigraph<N, E> {
         &self.g
     }
 
-    pub fn add_node(&mut self) -> NodeIdx {
-        self.g.add_node(N::default()).index() as NodeIdx
+    pub fn add_node_with_weight(&mut self, weight: N) -> NodeIdx {
+        self.g.add_node(weight).index() as NodeIdx
     }
 
-    pub fn add_edge(&mut self, src: NodeIdx, dst: NodeIdx) {
+
+    pub fn add_node(&mut self) -> NodeIdx {
+        self.add_node_with_weight(N::default())
+    }
+
+    pub fn add_edge_with_weight(&mut self, src: NodeIdx, dst: NodeIdx, weight: E) {
         self.g.add_edge(NodeIndex::new(src as usize),
                         NodeIndex::new(dst as usize),
-                        E::default());
+                        weight);
 
         // treat as adjacency matrix (with `src` using rows and `dst` columns)
         let (idx, bit_pattern) = calc_index(self.n, src, dst);
 
         self.matrix[idx as usize] |= bit_pattern;
+    }
+
+    pub fn add_edge(&mut self, src: NodeIdx, dst: NodeIdx) {
+        self.add_edge_with_weight(src, dst, E::default())
     }
 
     pub fn from_(num_nodes: NodeIdx, edge_list: &[(NodeIdx, NodeIdx)]) -> OptDenseDigraph<N, E> {
